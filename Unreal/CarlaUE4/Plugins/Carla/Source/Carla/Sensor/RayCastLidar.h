@@ -1,11 +1,8 @@
-// Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB).
-//
-// This work is licensed under the terms of the MIT license.
-// For a copy, see <https://opensource.org/licenses/MIT>.
-
+// === File: RayCastLidar.h ===
 #pragma once
 
+// Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma de Barcelona (UAB).
+// Licensed under the MIT license.
 
 #include "Carla/Actor/ActorDefinition.h"
 #include "Carla/Sensor/LidarDescription.h"
@@ -45,7 +42,7 @@ private:
     void PreprocessRays(uint32_t Channels, uint32_t MaxPointsPerChannel) override;
     bool PostprocessDetection(FDetection& Detection) const;
   
-    void ComputeAndSaveDetections(const FTransform& SensorTransform) override;
+    void  (const FTransform& SensorTransform) override;
   
     FLidarData LidarData;
   
@@ -70,18 +67,4 @@ private:
 
   // tampon de détections pour l’anneau courant
   TArray<FDetection> AccumulatedDetections;
-};
-
-  FLidarData LidarData;
-
-  /// Enable/Disable general dropoff of lidar points
-  bool DropOffGenActive;
-
-  /// Slope for the intensity dropoff of lidar points, it is calculated
-  /// throught the dropoff limit and the dropoff at zero intensity
-  /// The points is kept with a probality alpha*Intensity + beta where
-  /// alpha = (1 - dropoff_zero_intensity) / droppoff_limit
-  /// beta = (1 - dropoff_zero_intensity)
-  float DropOffAlpha;
-  float DropOffBeta;
 };
