@@ -32,6 +32,12 @@ ARayCastLidar::ARayCastLidar(const FObjectInitializer& ObjectInitializer)
 
   RandomEngine = CreateDefaultSubobject<URandomEngine>(TEXT("RandomEngine"));
   SetSeed(Description.RandomSeed);
+
+  // Initialize progressive scan
+  //bProgressiveScan = true; //false pour retrouver celui de base
+  //CurrentChannel   = 0;
+  CurrentAzimuth = 0;
+  AccumulatedDetections.Empty();
 }
 
 void ARayCastLidar::Set(const FActorDescription &ActorDescription)
@@ -57,16 +63,11 @@ void ARayCastLidar::Set(const FLidarDescription &LidarDescription)
 
 void ARayCastLidar::PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime)
 {
-  TRACE_CPUPROFILER_EVENT_SCOPE(ARayCastLidar::PostPhysTick);
-  SimulateLidar(DeltaTime);
-
-  auto DataStream = GetDataStream(*this);
-  auto SensorTransform = DataStream.GetSensorTransform();
-
-  {
-    TRACE_CPUPROFILER_EVENT_SCOPE_STR("Send Stream");
-    DataStream.SerializeAndSend(*this, LidarData, DataStream.PopBufferFromPool());
-  }
+  // stocke Δt pour ComputeAndSaveDetections
+  CurrentDeltaTime = DeltaTime;
+  SimulateLidar(DeltaTime); //lance le(s) laser
+  auto Stream = GetDataStream(*this);
+  Stream.SerializeAndSend(*this, LidarData, Stream.PopBufferFromPool());
   // ROS2
   #if defined(WITH_ROS2)
   auto ROS2 = carla::ros2::ROS2::GetInstance();
@@ -114,9 +115,9 @@ ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitI
   const float AttenAtm = Description.AtmospAttenRate;
   const float AbsAtm = exp(-AttenAtm * Distance);
 
-  const float IntRec = AbsAtm;
+  // 6) On stocke l’intensité reçue
+  Detection.intensity = AbsAtm;
 
-  Detection.intensity = IntRec;
 
   return Detection;
 }
@@ -146,7 +147,10 @@ ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitI
       return RandomEngine->GetUniformFloat() < DropOffAlpha * Intensity + DropOffBeta;
   }
 
-  void ARayCastLidar::ComputeAndSaveDetections(const FTransform& SensorTransform) {
+  void ARayCastLidar::ComputeAndSaveDetections(const FTransform& SensorTransform) 
+{
+// ===== Batch (original) =====
+if (!Description.EnableEgoMotion) {
     for (auto idxChannel = 0u; idxChannel < Description.Channels; ++idxChannel)
       PointsPerChannel[idxChannel] = RecordedHits[idxChannel].size();
 
@@ -154,13 +158,100 @@ ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitI
 
     for (auto idxChannel = 0u; idxChannel < Description.Channels; ++idxChannel) {
       for (auto& hit : RecordedHits[idxChannel]) {
-        FDetection Detection = ComputeDetection(hit, SensorTransform);
-        if (PostprocessDetection(Detection))
-          LidarData.WritePointSync(Detection);
-        else
-          PointsPerChannel[idxChannel]--;
+	FDetection Detection = ComputeDetection(hit, SensorTransform);
+	if (PostprocessDetection(Detection))
+	  LidarData.WritePointSync(Detection);
+	else
+	  PointsPerChannel[idxChannel]--;
       }
     }
 
+
     LidarData.WriteChannelCount(PointsPerChannel);
-  }
+      for (auto &hits : RecordedHits) {
+        hits.clear();
+      }
+      return;
+}
+
+//std::cout << "EgoMotion" << std::endl;
+
+
+    // 1) Prépare le buffer pour tous les channels
+    std::vector<uint32_t> counts(Description.Channels, 0u);
+    LidarData.ResetMemory(counts);
+
+    // 2) Pour chaque channel vertical, on tire un rayon au CurrentAzimuth
+    const uint32_t batchSize = 10; //  on tire 10 colonne par tick
+    const float vstep = (Description.UpperFovLimit - Description.LowerFovLimit) / float(Description.Channels - 1);
+
+      // on calcule la variation horizontale totale pour ce tick
+    const float deltaAzTotal = 360.0f * Description.RotationFrequency * CurrentDeltaTime;
+    int i;
+
+    FRotator lidar_rotation = SensorTransform.GetRotation().Rotator();
+    FVector location = SensorTransform.GetLocation();
+    FRotator rotation = SensorTransform.Rotator();  
+    float x = location.X;
+    float y = location.Y;
+    float z = location.Z;
+    float rx = rotation.Roll;  
+    float ry = rotation.Pitch; 
+    float rz = rotation.Yaw; 
+    float base_yaw = lidar_rotation.Yaw;
+
+    FCollisionQueryParams TraceParams = FCollisionQueryParams(FName(TEXT("Laser_Trace")), true, this);
+    TraceParams.bTraceComplex = true;
+    TraceParams.bReturnPhysicalMaterial = false;
+    TraceParams.AddIgnoredActor(this);
+
+    for (i=0; i<batchSize;i++){
+      float hAngle = FMath::Fmod(base_yaw + CurrentAzimuth+ deltaAzTotal * (float(i) / float(batchSize)), 360.0f);
+      for (uint32_t ch = 0; ch < Description.Channels; ++ch)
+        {
+          // Calcul de l’angle vertical pour ce channel
+          float vangle = Description.LowerFovLimit + vstep * float(ch);
+
+          // Construction de la direction du rayon
+          FRotator rot(vangle, hAngle, 0.f);
+          FVector  dir   = rot.RotateVector(FVector::ForwardVector);
+          FVector  start = SensorTransform.GetLocation();
+          FVector  end   = start + dir * Description.Range;
+
+          // Lancement du ray‐cast UE4
+          FHitResult hit;
+          bool bHit = GetWorld()->LineTraceSingleByChannel(
+              hit, start, end, ECC_GameTraceChannel2, TraceParams);
+
+          if (!bHit) {
+            continue;
+          }
+
+          // Point d’impact en coords monde
+          const FVector &wp_hit = hit.ImpactPoint;
+          //carla::geom::Location P_world{ wp_hit.X / 100, wp_hit.Y / 100, wp_hit.Z / 100 };
+
+          // --- UTILISATION DE ComputeDetection ---
+          // ComputeDetection transforme le hit en détect., 
+          // calcule l’intensité d’après la distance locale.
+          FDetection det = ComputeDetection(hit, SensorTransform);
+
+          // Si on veut garder le point EN COORDONNÉES MONDE :
+          //det.point = P_world;
+
+          // Enfin on écrit dans le buffer
+          if (PostprocessDetection(det)) {
+            LidarData.WritePointSync(det);
+            counts[ch]++;
+          }
+        }
+    }
+    
+    
+    // 3) Finalise le message
+    LidarData.WriteChannelCount(counts);
+
+    CurrentAzimuth = FMath::Fmod(CurrentAzimuth + deltaAzTotal, 360.0f);
+
+
+}

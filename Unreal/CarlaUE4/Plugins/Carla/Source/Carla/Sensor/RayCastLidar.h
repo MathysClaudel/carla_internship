@@ -19,7 +19,7 @@
 
 #include "RayCastLidar.generated.h"
 
-/// A ray-cast based Lidar sensor.
+/// A ray-cast based Lidar sensor with optional progressive scan mode.
 UCLASS()
 class CARLA_API ARayCastLidar : public ARayCastSemanticLidar
 {
@@ -38,14 +38,39 @@ public:
   virtual void PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime);
 
 private:
-  /// Compute the received intensity of the point
-  float ComputeIntensity(const FSemanticDetection& RawDetection) const;
-  FDetection ComputeDetection(const FHitResult& HitInfo, const FTransform& SensorTransf) const;
+    /// Compute the received intensity of the point
+    float ComputeIntensity(const FSemanticDetection& RawDetection) const;
+    FDetection ComputeDetection(const FHitResult& HitInfo, const FTransform& SensorTransf) const;
+  
+    void PreprocessRays(uint32_t Channels, uint32_t MaxPointsPerChannel) override;
+    bool PostprocessDetection(FDetection& Detection) const;
+  
+    void ComputeAndSaveDetections(const FTransform& SensorTransform) override;
+  
+    FLidarData LidarData;
+  
+    /// Enable/Disable general dropoff of lidar points
+    bool DropOffGenActive;
+  
+    /// Slope for the intensity dropoff of lidar points, it is calculated
+    /// throught the dropoff limit and the dropoff at zero intensity
+    /// The points is kept with a probality alpha*Intensity + beta where
+    /// alpha = (1 - dropoff_zero_intensity) / droppoff_limit
+    /// beta = (1 - dropoff_zero_intensity)
+    float DropOffAlpha;
+    float DropOffBeta;
 
-  void PreprocessRays(uint32_t Channels, uint32_t MaxPointsPerChannel) override;
-  bool PostprocessDetection(FDetection& Detection) const;
+  // si true, on fait un anneau par tick au lieu du batch complet
+  bool   bProgressiveScan   = true;
+  // angle actuel du sweep (en degrés)
+  float  CurrentAzimuth     = 0.0f;
+  // dernier deltaTime reçu
+  float  CurrentDeltaTime   = 0.0f;
+  //float CurrentChannel;
 
-  void ComputeAndSaveDetections(const FTransform& SensorTransform) override;
+  // tampon de détections pour l’anneau courant
+  TArray<FDetection> AccumulatedDetections;
+};
 
   FLidarData LidarData;
 

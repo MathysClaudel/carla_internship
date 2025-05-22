@@ -981,6 +981,11 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
   StdDevLidar.Id = TEXT("noise_stddev");
   StdDevLidar.Type = EActorAttributeType::Float;
   StdDevLidar.RecommendedValues = { TEXT("0.0") };
+  // Frequency.
+  FActorVariation EnableEgoMotion;
+  EnableEgoMotion.Id = TEXT("enable_ego_motion");
+  EnableEgoMotion.Type = EActorAttributeType::Bool;
+  EnableEgoMotion.RecommendedValues = { TEXT("true") };
 
   if (Id == "ray_cast") {
     Definition.Variations.Append({
@@ -996,7 +1001,8 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
       DropOffIntensityLimit,
       DropOffAtZeroIntensity,
       StdDevLidar,
-      HorizontalFOV});
+      HorizontalFOV,
+      EnableEgoMotion});
   }
   else if (Id == "ray_cast_semantic") {
     Definition.Variations.Append({
@@ -1006,6 +1012,22 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
       Frequency,
       UpperFOV,
       LowerFOV,
+      HorizontalFOV});
+  }
+  else if (Id == "ray_cast_surface_normals") {
+    Definition.Variations.Append({
+      Channels,
+      Range,
+      PointsPerSecond,
+      Frequency,
+      UpperFOV,
+      LowerFOV,
+      AtmospAttenRate,
+      NoiseSeed,
+      DropOffGenRate,
+      DropOffIntensityLimit,
+      DropOffAtZeroIntensity,
+      StdDevLidar,
       HorizontalFOV});
   }
   else {
@@ -2042,6 +2064,8 @@ void UActorBlueprintFunctionLibrary::SetLidar(
       RetrieveActorAttributeToFloat("dropoff_zero_intensity", Description.Variations, Lidar.DropOffAtZeroIntensity);
   Lidar.NoiseStdDev =
       RetrieveActorAttributeToFloat("noise_stddev", Description.Variations, Lidar.NoiseStdDev);
+  Lidar.EnableEgoMotion =
+      RetrieveActorAttributeToBool("enable_ego_motion", Description.Variations, Lidar.EnableEgoMotion);
 }
 
 void UActorBlueprintFunctionLibrary::SetGnss(
