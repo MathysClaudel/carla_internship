@@ -17,6 +17,7 @@ public:
 
   UMaterialInstanceDynamic* GetTaggedMaterial();
   UMaterialInstanceDynamic* GetTaggedMaterial(UMaterialInterface* UsedMaterial);
+  void SetTaggingTraverseTranslucency(UCarlaEpisode* Episode, bool bTaggingTraverseTranslucency);
   FORCEINLINE int32 Num() const {return TaggedMaskedMaterials.Num();}
 
 #if WITH_EDITOR
@@ -34,6 +35,7 @@ protected:
   void InjectTag(UMaterialInterface* MaterialInterface);
   void InjectTagIntoMaterial(UMaterial* Material);
   void InjectTagIntoMaterialInstance(UMaterialInstance* MaterialInstance);
+  FString GetTaggedName(const FString& OriginalName);
 
   // Copies the given expression and all the material graph of its inputs to the target material. Returns the copy of the root expression.
   UMaterialExpression* CopyMaterialExpressions(UMaterial* TargetMaterial, UMaterialExpression* RootExpression);
@@ -47,6 +49,9 @@ private:
 
   UPROPERTY(VisibleAnywhere)
   TMap<FString, UMaterialInterface*> TaggedMaskedMaterials;
+  
+  UPROPERTY(VisibleAnywhere)
+  UMaterialParameterCollection* TaggingParamerCollection;
 
   bool bPendingChanges = false;
 

@@ -1,8 +1,8 @@
-// // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// // de Barcelona (UAB).
-// //
-// // This work is licensed under the terms of the MIT license.
-// // For a copy, see <https://opensource.org/licenses/MIT>.
+// Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
+// de Barcelona (UAB).
+//
+// This work is licensed under the terms of the MIT license.
+// For a copy, see <https://opensource.org/licenses/MIT>.
 
 // #include <PxScene.h>
 // #include <cmath>
@@ -189,6 +189,8 @@ FActorDefinition ARayCastLidar::GetSensorDefinition()
 {
   return UActorBlueprintFunctionLibrary::MakeLidarDefinition(TEXT("ray_cast"));
 }
+
+
 ARayCastLidar::ARayCastLidar(const FObjectInitializer& ObjectInitializer)
   : Super(ObjectInitializer) {
 
@@ -287,7 +289,7 @@ ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitI
 
   // 5) On applique la même loi d’atténuation atmosphérique que dans ComputeIntensity
   const float AttenAtm = Description.AtmospAttenRate;
-  const float AbsAtm   = exp(-AttenAtm * Distance);
+  const float AbsAtm = exp(-AttenAtm * Distance);
 
   // 6) On stocke l’intensité reçue
   Detection.intensity = AbsAtm;
@@ -430,5 +432,4 @@ void ARayCastLidar::ComputeAndSaveDetections(const FTransform& SensorTransform)
 
     CurrentAzimuth = FMath::Fmod(CurrentAzimuth + deltaAzTotal, 360.0f);
 
-    
-}    
+}

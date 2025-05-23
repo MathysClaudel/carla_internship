@@ -15,6 +15,10 @@ UTaggedMaterialsRegistry::UTaggedMaterialsRegistry() {
   static ConstructorHelpers::FObjectFinder<UMaterial> TaggedOpaqueMaterialObject(*MaterialPath);
   // TODO: Replace with VertexColorViewModeMaterial_ColorOnly?
   TaggedOpaqueMaterial = TaggedOpaqueMaterialObject.Object;
+
+  FString TaggingMPCPath = TEXT("Material'/Carla/PostProcessingMaterials/MPC/MPC_Tagging.MPC_Tagging'");
+  static ConstructorHelpers::FObjectFinder<UMaterialParameterCollection> TaggingMPCObject(*TaggingMPCPath);
+  TaggingParamerCollection = TaggingMPCObject.Object;
 }
 
 UTaggedMaterialsRegistry* UTaggedMaterialsRegistry::Create(const FString& RegistryName) {
@@ -60,11 +64,24 @@ UTaggedMaterialsRegistry* UTaggedMaterialsRegistry::Get() {
   return Registry;
 }
 
+void UTaggedMaterialsRegistry::SetTaggingTraverseTranslucency(UCarlaEpisode* Episode, bool bTaggingTraverseTranslucency) {
+  UMaterialParameterCollectionInstance* MPCInstance = Episode->GetWorld()->GetParameterCollectionInstance(TaggingParamerCollection);
+  MPCInstance->SetScalarParameterValue("TraverseTranslucency", bTaggingTraverseTranslucency);
+}
+
 UMaterialInstanceDynamic* UTaggedMaterialsRegistry::GetTaggedMaterial() {
   return UMaterialInstanceDynamic::Create(TaggedOpaqueMaterial, this);
 }
 
 UMaterialInstanceDynamic* UTaggedMaterialsRegistry::GetTaggedMaterial(UMaterialInterface* UsedMaterial) {
+  // If UsedMaterial is a translucent material, we use the default tagged material but enable IsTranslucent.
+  // Using SetTaggingTraverseTranslucency, it can be globally enabled/disabled that these materials appear invisible or not.
+  if (UsedMaterial && UsedMaterial->GetBlendMode() == EBlendMode::BLEND_Translucent) {
+    UMaterialInstanceDynamic* TranslucentMaterial = GetTaggedMaterial();
+    TranslucentMaterial->SetScalarParameterValue("IsTranslucent", true);
+    return TranslucentMaterial;
+  }
+
   // If UsedMaterial is null OR neither masked nor using WorldPositionOffset, we return NULL to indicate,
   // that the requested material does not require a fine-grained tag-injected correspondence.
   if (!UsedMaterial || !(UsedMaterial->IsMasked() || UsedMaterial->GetMaterial()->WorldPositionOffset.IsConnected())) {
@@ -127,7 +144,7 @@ void UTaggedMaterialsRegistry::InjectTagIntoMaterial(UMaterial* Material) {
     return;
   }
 
-  FName TaggedMaterialName(Material->GetName() + TEXT("_Tagged"));
+  FName TaggedMaterialName(GetTaggedName(Material->GetName()));
   UMaterial* TagInjectedMaterial = NewObject<UMaterial>(this, TaggedMaterialName, RF_Public | RF_Standalone);
 
   UMaterialExpressionVectorParameter* ExpressionInstSegColor = NewObject<UMaterialExpressionVectorParameter>(TagInjectedMaterial);
@@ -297,7 +314,7 @@ void UTaggedMaterialsRegistry::InjectTagIntoMaterialInstance(UMaterialInstance* 
     UMaterialInstanceConstant* MaterialInstanceConstant = Cast<UMaterialInstanceConstant>(MaterialInstance);
     if (MaterialInstanceConstant) {
       UMaterialInstanceConstant* TagInjectedMIC = DuplicateObject<UMaterialInstanceConstant>(MaterialInstanceConstant, this);
-      TagInjectedMIC->Rename(*(TagInjectedMIC->GetName() + TEXT("_Tagged")));
+      TagInjectedMIC->Rename(*GetTaggedName(TagInjectedMIC->GetName()));
       TagInjectedMIC->SetFlags(RF_Public | RF_Standalone);
       TagInjectedMIC->SetParentEditorOnly(*TagInjectedParent);
       if (TagInjectedMIC->BasePropertyOverrides.bOverride_ShadingModel) {
@@ -309,6 +326,18 @@ void UTaggedMaterialsRegistry::InjectTagIntoMaterialInstance(UMaterialInstance* 
       bPendingChanges = true;
     }
   }
+}
+
+FString UTaggedMaterialsRegistry::GetTaggedName(const FString& OriginalName) {
+  FString TaggedName = OriginalName + TEXT("_Tagged");
+  // Check if the name is already in use by any other object in this TaggedMaterialsRegistry.
+  // Append growing index, if this is actually the case (rare).
+  int32 i = 0;
+  while (StaticFindObject(NULL, this, *TaggedName, true)) {
+    i++;
+    TaggedName = FString(OriginalName + FString::Printf(TEXT("_Tagged%d"), i));
+  }
+  return TaggedName;
 }
 
 UMaterialExpression* UTaggedMaterialsRegistry::CopyMaterialExpressions(UMaterial* TargetMaterial, UMaterialExpression* RootExpression) {
