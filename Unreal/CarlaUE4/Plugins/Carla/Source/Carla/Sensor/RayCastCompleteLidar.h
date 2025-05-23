@@ -59,4 +59,16 @@ private:
   /// beta = (1 - dropoff_zero_intensity)
   float DropOffAlpha;
   float DropOffBeta;
+
+  // si true, on fait un anneau par tick au lieu du batch complet
+  bool   bProgressiveScan   = true;
+  // angle actuel du sweep (en degrés)
+  float  CurrentAzimuth     = 0.0f;
+  // dernier deltaTime reçu
+  float  CurrentDeltaTime   = 0.0f;
+  //float CurrentChannel;
+
+  // tampon de détections pour l’anneau courant
+  TArray<FCompleteLidarDetection> AccumulatedDetections;
+  
 };
