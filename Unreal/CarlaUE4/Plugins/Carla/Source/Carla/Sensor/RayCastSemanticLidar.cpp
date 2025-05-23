@@ -27,11 +27,11 @@ FActorDefinition ARayCastSemanticLidar::GetSensorDefinition()
   return UActorBlueprintFunctionLibrary::MakeLidarDefinition(TEXT("ray_cast_semantic"));
 }
 
-ARayCastSemanticLidar::ARayCastSemanticLidar(const FObjectInitializer& ObjectInitializer)
-  : Super(ObjectInitializer)
-{
-  PrimaryActorTick.bCanEverTick = true;
-}
+  ARayCastSemanticLidar::ARayCastSemanticLidar(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+  {
+    PrimaryActorTick.bCanEverTick = true;
+  }
 
 void ARayCastSemanticLidar::Set(const FActorDescription &ActorDescription)
 {
@@ -154,8 +154,7 @@ void ARayCastSemanticLidar::SimulateLidar(const float DeltaTime)
   FTransform ActorTransf = GetTransform();
   ComputeAndSaveDetections(ActorTransf);
 
-  const float HorizontalAngle = carla::geom::Math::ToRadians(
-      std::fmod(CurrentHorizontalAngle + AngleDistanceOfTick, Description.HorizontalFov));
+  const float HorizontalAngle = carla::geom::Math::ToRadians(std::fmod(CurrentHorizontalAngle + AngleDistanceOfTick, Description.HorizontalFov));
   SemanticLidarData.SetHorizontalAngle(HorizontalAngle);
 }
 

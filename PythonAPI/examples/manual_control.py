@@ -345,24 +345,24 @@ class World(object):
         self.camera_manager.render(display)
         self.hud.render(display)
 
-    def destroy_sensors(self):
-        self.camera_manager.sensor.destroy()
-        self.camera_manager.sensor = None
-        self.camera_manager.index = None
+    # def destroy_sensors(self):
+    #     self.camera_manager.sensor.destroy()
+    #     self.camera_manager.sensor = None
+    #     self.camera_manager.index = None
 
     def destroy(self):
         if self.radar_sensor is not None:
             self.toggle_radar()
-        sensors = [
-            self.camera_manager.sensor,
-            self.collision_sensor.sensor,
-            self.lane_invasion_sensor.sensor,
-            self.gnss_sensor.sensor,
-            self.imu_sensor.sensor]
-        for sensor in sensors:
-            if sensor is not None:
-                sensor.stop()
-                sensor.destroy()
+        # sensors = [
+        #     self.camera_manager.sensor,
+        #     self.collision_sensor.sensor,
+        #     self.lane_invasion_sensor.sensor,
+        #     self.gnss_sensor.sensor,
+        #     self.imu_sensor.sensor]
+        # for sensor in sensors:
+        #     if sensor is not None:
+        #         sensor.stop()
+        #         sensor.destroy()
         if self.player is not None:
             self.player.destroy()
 
@@ -488,7 +488,7 @@ class KeyboardControl(object):
                     world.recording_enabled = False
                     # work around to fix camera at start of replaying
                     current_index = world.camera_manager.index
-                    world.destroy_sensors()
+                    # world.destroy_sensors()
                     # disable autopilot
                     self._autopilot_enabled = False
                     world.player.set_autopilot(self._autopilot_enabled)

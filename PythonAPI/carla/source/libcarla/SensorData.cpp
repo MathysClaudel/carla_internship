@@ -17,6 +17,8 @@
 #include <carla/sensor/data/LaneInvasionEvent.h>
 #include <carla/sensor/data/LidarMeasurement.h>
 #include <carla/sensor/data/SemanticLidarMeasurement.h>
+#include <carla/sensor/data/SurfaceNormalLidarMeasurement.h>
+#include <carla/sensor/data/CompleteLidarMeasurement.h>
 #include <carla/sensor/data/GnssMeasurement.h>
 #include <carla/sensor/data/RadarMeasurement.h>
 #include <carla/sensor/data/DVSEventArray.h>
@@ -57,6 +59,22 @@ namespace data {
 
   std::ostream &operator<<(std::ostream &out, const LidarMeasurement &meas) {
     out << "LidarMeasurement(frame=" << std::to_string(meas.GetFrame())
+        << ", timestamp=" << std::to_string(meas.GetTimestamp())
+        << ", number_of_points=" << std::to_string(meas.size())
+        << ')';
+    return out;
+  }
+
+  std::ostream &operator<<(std::ostream &out, const SurfaceNormalLidarMeasurement &meas) {
+    out << "SurfaceNormalLidarMeasurement(frame=" << std::to_string(meas.GetFrame())
+        << ", timestamp=" << std::to_string(meas.GetTimestamp())
+        << ", number_of_points=" << std::to_string(meas.size())
+        << ')';
+    return out;
+  }
+
+  std::ostream &operator<<(std::ostream &out, const CompleteLidarMeasurement &meas) {
+    out << "CompleteLidarMeasurement(frame=" << std::to_string(meas.GetFrame())
         << ", timestamp=" << std::to_string(meas.GetTimestamp())
         << ", number_of_points=" << std::to_string(meas.size())
         << ')';
@@ -154,6 +172,33 @@ namespace data {
         << ", y=" << std::to_string(det.point.y)
         << ", z=" << std::to_string(det.point.z)
         << ", intensity=" << std::to_string(det.intensity)
+        << ')';
+    return out;
+  }
+
+  std::ostream &operator<<(std::ostream &out, const SurfaceNormalLidarDetection &det) {
+    out << "SurfaceNormalLidarDetection(x=" << std::to_string(det.point.x)
+        << ", y=" << std::to_string(det.point.y)
+        << ", z=" << std::to_string(det.point.z)
+        << ", intensity=" << std::to_string(det.intensity)
+        << ", surface_normal_x=" << std::to_string(det.surf_normal.x)
+        << ", surface_normal_y=" << std::to_string(det.surf_normal.y)
+        << ", surface_normal_z=" << std::to_string(det.surf_normal.z)
+        << ')';
+    return out;
+  }
+
+  std::ostream &operator<<(std::ostream &out, const CompleteLidarDetection &det) {
+    out << "CompleteLidarDetection(x=" << std::to_string(det.point.x)
+        << ", y=" << std::to_string(det.point.y)
+        << ", z=" << std::to_string(det.point.z)
+        << ", intensity=" << std::to_string(det.intensity)
+        << ", surface_normal_x=" << std::to_string(det.surf_normal.x)
+        << ", surface_normal_y=" << std::to_string(det.surf_normal.y)
+        << ", surface_normal_z=" << std::to_string(det.surf_normal.z)
+        << ", cos_inc_angle=" << std::to_string(det.cos_inc_angle)
+        << ", object_idx=" << std::to_string(det.object_idx)
+        << ", object_tag=" << std::to_string(det.object_tag)
         << ')';
     return out;
   }
@@ -526,6 +571,40 @@ void export_sensor_data() {
     })
     .def(self_ns::str(self_ns::self))
   ;
+  
+  class_<csd::SurfaceNormalLidarMeasurement, bases<cs::SensorData>, boost::noncopyable, boost::shared_ptr<csd::SurfaceNormalLidarMeasurement>>("SurfaceNormalLidarMeasurement", no_init)
+    .add_property("horizontal_angle", &csd::SurfaceNormalLidarMeasurement::GetHorizontalAngle)
+    .add_property("channels", &csd::SurfaceNormalLidarMeasurement::GetChannelCount)
+    .add_property("raw_data", &GetRawDataAsBuffer<csd::SurfaceNormalLidarMeasurement>)
+    .def("get_point_count", &csd::SurfaceNormalLidarMeasurement::GetPointCount, (arg("channel")))
+    .def("save_to_disk", &SavePointCloudToDisk<csd::SurfaceNormalLidarMeasurement>, (arg("path")))
+    .def("__len__", &csd::SurfaceNormalLidarMeasurement::size)
+    .def("__iter__", iterator<csd::SurfaceNormalLidarMeasurement>())
+    .def("__getitem__", +[](const csd::SurfaceNormalLidarMeasurement &self, size_t pos) -> csd::SurfaceNormalLidarDetection {
+      return self.at(pos);
+    })
+    .def("__setitem__", +[](csd::SurfaceNormalLidarMeasurement &self, size_t pos, const csd::SurfaceNormalLidarDetection &detection) {
+      self.at(pos) = detection;
+    })
+    .def(self_ns::str(self_ns::self))
+  ;
+
+  class_<csd::CompleteLidarMeasurement, bases<cs::SensorData>, boost::noncopyable, boost::shared_ptr<csd::CompleteLidarMeasurement>>("CompleteLidarMeasurement", no_init)
+  .add_property("horizontal_angle", &csd::CompleteLidarMeasurement::GetHorizontalAngle)
+  .add_property("channels", &csd::CompleteLidarMeasurement::GetChannelCount)
+  .add_property("raw_data", &GetRawDataAsBuffer<csd::CompleteLidarMeasurement>)
+  .def("get_point_count", &csd::CompleteLidarMeasurement::GetPointCount, (arg("channel")))
+  .def("save_to_disk", &SavePointCloudToDisk<csd::CompleteLidarMeasurement>, (arg("path")))
+  .def("__len__", &csd::CompleteLidarMeasurement::size)
+  .def("__iter__", iterator<csd::CompleteLidarMeasurement>())
+  .def("__getitem__", +[](const csd::CompleteLidarMeasurement &self, size_t pos) -> csd::CompleteLidarDetection {
+    return self.at(pos);
+  })
+  .def("__setitem__", +[](csd::CompleteLidarMeasurement &self, size_t pos, const csd::CompleteLidarDetection &detection) {
+    self.at(pos) = detection;
+  })
+  .def(self_ns::str(self_ns::self))
+;
 
   class_<csd::SemanticLidarMeasurement, bases<cs::SensorData>, boost::noncopyable, boost::shared_ptr<csd::SemanticLidarMeasurement>>("SemanticLidarMeasurement", no_init)
     .add_property("horizontal_angle", &csd::SemanticLidarMeasurement::GetHorizontalAngle)
@@ -604,6 +683,23 @@ void export_sensor_data() {
     .def_readwrite("point", &csd::LidarDetection::point)
     .def_readwrite("intensity", &csd::LidarDetection::intensity)
     .def(self_ns::str(self_ns::self))
+  ;
+
+  class_<csd::SurfaceNormalLidarDetection>("SurfaceNormalLidarDetection")
+  .def_readwrite("point", &csd::SurfaceNormalLidarDetection::point)
+  .def_readwrite("intensity", &csd::SurfaceNormalLidarDetection::intensity)
+  .def_readwrite("surf_normal", &csd::SurfaceNormalLidarDetection::intensity)
+  .def(self_ns::str(self_ns::self))
+;
+
+  class_<csd::CompleteLidarDetection>("CompleteLidarDetection")
+  .def_readwrite("point", &csd::CompleteLidarDetection::point)
+  .def_readwrite("intensity", &csd::CompleteLidarDetection::intensity)
+  .def_readwrite("surf_normal", &csd::CompleteLidarDetection::intensity)
+  .def_readwrite("cos_inc_angle", &csd::CompleteLidarDetection::cos_inc_angle)
+  .def_readwrite("object_idx", &csd::CompleteLidarDetection::object_idx)
+  .def_readwrite("object_tag", &csd::CompleteLidarDetection::object_tag)
+  .def(self_ns::str(self_ns::self))
   ;
 
   class_<csd::SemanticLidarDetection>("SemanticLidarDetection")

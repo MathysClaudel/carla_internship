@@ -223,7 +223,11 @@ def main():
         for n, transform in enumerate(spawn_points):
             if n >= args.number_of_vehicles:
                 break
-            blueprint = random.choice(blueprints)
+            
+            # Spawn Tesla model insterad of rando
+            #blueprint = random.choice(blueprints)
+            blueprint_library = world.get_blueprint_library()
+            blueprint      = blueprint_library.find('vehicle.tesla.model3')
             if blueprint.has_attribute('color'):
                 color = random.choice(blueprint.get_attribute('color').recommended_values)
                 blueprint.set_attribute('color', color)

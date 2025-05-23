@@ -171,7 +171,8 @@
 #include <PxScene.h>
 #include <cmath>
 #include "Carla.h"
-#include "Carla/Sensor/RayCastLidar.h"
+#include "Carla/Sensor/LidarDescription.h"
+#include "Carla/Sensor/RayCastCompleteLidar.h"
 #include "Carla/Actor/ActorBlueprintFunctionLibrary.h"
 #include "carla/geom/Math.h"
 
@@ -185,11 +186,11 @@
 #include "Engine/CollisionProfile.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
 
-FActorDefinition ARayCastLidar::GetSensorDefinition()
+FActorDefinition ARayCastCompleteLidar::GetSensorDefinition()
 {
-  return UActorBlueprintFunctionLibrary::MakeLidarDefinition(TEXT("ray_cast"));
+  return UActorBlueprintFunctionLibrary::MakeLidarDefinition(TEXT("ray_cast_complete"));
 }
-ARayCastLidar::ARayCastLidar(const FObjectInitializer& ObjectInitializer)
+ARayCastCompleteLidar::ARayCastCompleteLidar(const FObjectInitializer& ObjectInitializer)
   : Super(ObjectInitializer) {
 
   RandomEngine = CreateDefaultSubobject<URandomEngine>(TEXT("RandomEngine"));
@@ -202,7 +203,7 @@ ARayCastLidar::ARayCastLidar(const FObjectInitializer& ObjectInitializer)
   AccumulatedDetections.Empty();
 }
 
-void ARayCastLidar::Set(const FActorDescription &ActorDescription)
+void ARayCastCompleteLidar::Set(const FActorDescription &ActorDescription)
 {
   ASensor::Set(ActorDescription);
   FLidarDescription LidarDescription;
@@ -210,10 +211,10 @@ void ARayCastLidar::Set(const FActorDescription &ActorDescription)
   Set(LidarDescription);
 }
 
-void ARayCastLidar::Set(const FLidarDescription &LidarDescription)
+void ARayCastCompleteLidar::Set(const FLidarDescription &LidarDescription)
 {
   Description = LidarDescription;
-  LidarData = FLidarData(Description.Channels);
+  LidarData = FCompleteLidarData(Description.Channels);
   CreateLasers();
   PointsPerChannel.resize(Description.Channels);
 
@@ -223,7 +224,7 @@ void ARayCastLidar::Set(const FLidarDescription &LidarDescription)
   DropOffGenActive = Description.DropOffGenRate > std::numeric_limits<float>::epsilon();
 }
 
-void ARayCastLidar::PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime)
+void ARayCastCompleteLidar::PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime)
 {
   // stocke Δt pour ComputeAndSaveDetections
   CurrentDeltaTime = DeltaTime;
@@ -255,7 +256,7 @@ void ARayCastLidar::PostPhysTick(UWorld *World, ELevelTick TickType, float Delta
 
 
 //inutile ici car intensity calcule apres, mais la de base (utilse dans le semantic), je le lasise pour pas tout niquer
-float ARayCastLidar::ComputeIntensity(const FSemanticDetection& RawDetection) const
+float ARayCastCompleteLidar::ComputeIntensity(const FCompleteLidarDetection& RawDetection) const
 {
   const carla::geom::Location HitPoint = RawDetection.point;
 
@@ -270,7 +271,7 @@ float ARayCastLidar::ComputeIntensity(const FSemanticDetection& RawDetection) co
   return IntRec;
 }
 
-ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitInfo, const FTransform& SensorTransf) const{
+ARayCastCompleteLidar::FDetection ARayCastCompleteLidar::ComputeDetection(const FHitResult& HitInfo, const FTransform& SensorTransf) const{
   // 1) On crée la struct qui contiendra point et intensité
   FDetection Detection;
 
@@ -281,6 +282,33 @@ ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitI
   //    SensorTransf est la transform (position+rotation) du capteur,
   //    Inverse() ramène le point de l’espace monde à l’espace capteur.
   Detection.point = SensorTransf.Inverse().TransformPosition(HitPoint);
+  const FVector surf_normal = SensorTransf.Inverse().Rotator().RotateVector(HitInfo.ImpactNormal);
+  Detection.surf_normal.x = surf_normal.X;
+  Detection.surf_normal.y = surf_normal.Y;
+  Detection.surf_normal.z = surf_normal.Z;
+  Detection.surf_normal = Detection.surf_normal.MakeSafeUnitVector(std::numeric_limits<float>::epsilon());
+
+
+  const FVector VecInc = - (HitPoint - SensorTransf.GetLocation()).GetSafeNormal();
+  Detection.cos_inc_angle = FVector::DotProduct(VecInc, HitInfo.ImpactNormal);
+
+  const FActorRegistry &Registry = GetEpisode().GetActorRegistry();
+
+  const AActor* actor = HitInfo.Actor.Get();
+  Detection.object_idx = 0;
+  Detection.object_tag = static_cast<uint32_t>(HitInfo.Component->CustomDepthStencilValue);
+
+  if (actor != nullptr) {
+
+    const FCarlaActor* view = Registry.FindCarlaActor(actor);
+    if(view)
+      Detection.object_idx = view->GetActorId();
+
+  }
+  else {
+    UE_LOG(LogCarla, Warning, TEXT("Actor not valid %p!!!!"), actor);
+  }
+
 
   // 4) On calcule la distance du capteur au point (en mètre)
   const float Distance = Detection.point.Length();
@@ -297,7 +325,7 @@ ARayCastLidar::FDetection ARayCastLidar::ComputeDetection(const FHitResult& HitI
 }
 
 
-void ARayCastLidar::PreprocessRays(uint32_t Channels, uint32_t MaxPointsPerChannel) {
+void ARayCastCompleteLidar::PreprocessRays(uint32_t Channels, uint32_t MaxPointsPerChannel) {
     Super::PreprocessRays(Channels, MaxPointsPerChannel);
 
     for (auto ch = 0u; ch < Channels; ch++) {
@@ -307,7 +335,7 @@ void ARayCastLidar::PreprocessRays(uint32_t Channels, uint32_t MaxPointsPerChann
     }
   }
 
-bool ARayCastLidar::PostprocessDetection(FDetection& Detection) const
+bool ARayCastCompleteLidar::PostprocessDetection(FCompleteLidarDetection& Detection) const
 {
   if (Description.NoiseStdDev > std::numeric_limits<float>::epsilon()) {
     const auto ForwardVector = Detection.point.MakeUnitVector();
@@ -322,7 +350,7 @@ bool ARayCastLidar::PostprocessDetection(FDetection& Detection) const
     return RandomEngine->GetUniformFloat() < DropOffAlpha * Intensity + DropOffBeta;
 }
 
-void ARayCastLidar::ComputeAndSaveDetections(const FTransform& SensorTransform)
+void ARayCastCompleteLidar::ComputeAndSaveDetections(const FTransform& SensorTransform)
 {
     // ===== Batch (original) =====
     if (!Description.EnableEgoMotion) {
@@ -335,7 +363,7 @@ void ARayCastLidar::ComputeAndSaveDetections(const FTransform& SensorTransform)
 
       for (auto idxChannel = 0u; idxChannel < Description.Channels; ++idxChannel) {
         for (auto& hit : RecordedHits[idxChannel]) {
-          FDetection Detection = ComputeDetection(hit, SensorTransform);
+          FCompleteLidarDetection Detection = ComputeDetection(hit, SensorTransform);
           if (PostprocessDetection(Detection))
             LidarData.WritePointSync(Detection);
           else
