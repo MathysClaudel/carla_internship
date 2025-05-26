@@ -178,7 +178,7 @@ def main():
         'sensor_tick':       str(settings.fixed_delta_seconds),
         'upper_fov':         '15',
         'lower_fov':         '-15',
-        'enable_ego_motion': 'false'
+        'enable_ego_motion': 'true'
     }
     for k, v in params.items(): lidar_bp.set_attribute(k, v)
     lidar = world.spawn_actor(
