@@ -73,4 +73,8 @@ struct CARLA_API FLidarDescription
 
   UPROPERTY(EditAnywhere)
   float NoiseStdDev = 0.0f;
+
+  /// Actors ignored when performing ray-cast traces
+  UPROPERTY(EditAnywhere)
+  TArray<int32> IgnoredActorIds;
 };

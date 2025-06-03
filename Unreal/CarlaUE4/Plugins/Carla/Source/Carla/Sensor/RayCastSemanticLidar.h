@@ -39,6 +39,9 @@ public:
   virtual void Set(const FActorDescription &Description) override;
   virtual void Set(const FLidarDescription &LidarDescription);
 
+  UFUNCTION(BlueprintCallable)
+  void SetIgnoredActors(const TArray<int32>& ActorIds);
+
 protected:
   virtual void PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime) override;
 
