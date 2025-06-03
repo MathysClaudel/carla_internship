@@ -398,11 +398,32 @@ void ARayCastLidar::ComputeAndSaveDetections(const FTransform& SensorTransform)
           FVector  end   = start + dir * Description.Range;
 
           // Lancement du ray‐cast UE4
-          FHitResult hit;
-          bool bHit = GetWorld()->LineTraceSingleByChannel(
-              hit, start, end, ECC_GameTraceChannel2, TraceParams);
+          TArray<FHitResult> hits;
+          bool bHit = GetWorld()->LineTraceMultiByChannel(
+              hits, start, end, ECC_GameTraceChannel2, TraceParams);
 
+          FHitResult hit;
           if (!bHit) {
+            continue;
+          }
+          for (const FHitResult& testHit : hits)
+          {
+            const AActor* actor = testHit.Actor.Get();
+            int32 id = 0;
+            if (actor)
+            {
+              const FCarlaActor* view = GetEpisode().GetActorRegistry().FindCarlaActor(actor);
+              if (view)
+                id = view->GetActorId();
+            }
+            if (!Description.IgnoredActorIds.Contains(id))
+            {
+              hit = testHit;
+              break;
+            }
+          }
+          if (!hit.bBlockingHit)
+          {
             continue;
           }
 

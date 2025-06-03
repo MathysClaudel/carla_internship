@@ -41,6 +41,7 @@ void export_sensor() {
     .def("disable_for_ros", &cc::ServerSideSensor::DisableForROS)
     .def("is_enabled_for_ros", &cc::ServerSideSensor::IsEnabledForROS)
     .def("send", &cc::ServerSideSensor::Send, (arg("message")))
+    .def("set_ignored_actors", &cc::ServerSideSensor::SetLidarIgnoredActors, (arg("ids")))
     .def(self_ns::str(self_ns::self))
   ;
 

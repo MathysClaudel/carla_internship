@@ -684,9 +684,13 @@ namespace detail {
     return _pimpl->CallAndWait<bool>("is_sensor_enabled_for_ros", thisToken.get_stream_id());
   }
 
-  void Client::Send(rpc::ActorId ActorId, std::string message) {
-    _pimpl->AsyncCall("send", ActorId, message);
-  }
+void Client::Send(rpc::ActorId ActorId, std::string message) {
+  _pimpl->AsyncCall("send", ActorId, message);
+}
+
+void Client::SetLidarIgnoredActors(rpc::ActorId ActorId, const std::vector<ActorId> &Ids) {
+  _pimpl->AsyncCall("set_lidar_ignored_actors", ActorId, Ids);
+}
 
   void Client::SubscribeToGBuffer(
       rpc::ActorId ActorId,

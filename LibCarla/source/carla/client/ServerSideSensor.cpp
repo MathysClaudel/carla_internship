@@ -65,6 +65,10 @@ namespace client {
     GetEpisode().Lock()->Send(*this,message);
   }
 
+  void ServerSideSensor::SetLidarIgnoredActors(const std::vector<ActorId> &Ids) {
+    GetEpisode().Lock()->SetLidarIgnoredActors(*this, Ids);
+  }
+
   void ServerSideSensor::ListenToGBuffer(uint32_t GBufferId, CallbackFunctionType callback) {
     log_debug(GetDisplayId(), ": subscribing to gbuffer stream");
     RELEASE_ASSERT(GBufferId < GBufferTextureCount);
