@@ -2,6 +2,7 @@
 
 import glob, os, sys, random, math, struct
 from queue import Queue
+import time 
 
 # Insert CARLA egg
 try:
@@ -127,7 +128,7 @@ def main():
     vehicle_bps     = [bp for bp in all_vehicle_bps if bp.id != main_bp.id]
 
     traffic_vehicles = []
-    for point in spawn_points[:40]:
+    for point in spawn_points[:80]:
         bp = random.choice(vehicle_bps)
         actor = world.try_spawn_actor(bp, point)
         if actor:
@@ -144,19 +145,20 @@ def main():
     # 6) Préparer les listes d’IDs à ignorer
     all_ids         = [a.id for a in traffic_vehicles]
     all_ids = [int(x) for x in all_ids]
-    print("=== Contenu de ignore_all_ids et leurs types ===")
-    for idx, x in enumerate(all_ids):
-        print(f"[{idx}] = {x!r} (type: {type(x)})")
-    print("===============================================")
+    # print("=== Contenu de ignore_all_ids et leurs types ===")
+    # for idx, x in enumerate(all_ids):
+    #     print(f"[{idx}] = {x!r} (type: {type(x)})")
+    # print("===============================================")
+
     half            = len(all_ids) // 2
-    ignore_all_ids  = all_ids
-    ignore_half_ids = all_ids[:half]
+    ignore_all_ids  = all_ids 
+    ignore_half_ids = all_ids[:half] 
     ignore_none_ids = []
 
     # 7) Créer le blueprint LiDAR “ray_cast_complete”
     lidar_bp = blueprint_lib.find('sensor.lidar.ray_cast_complete')
     params   = {
-        'range':              '100',
+        'range':              '90',
         'rotation_frequency': '20',
         'channels':           '32',
         'points_per_second':  '640000',
@@ -210,11 +212,16 @@ def main():
     lidar_full.set_ignored_actors(ignore_none_ids)
     print("LiDAR full_traffic ignore 0 actors")
 
+
+    timestr = time.strftime("%Y%m%d-%H%M%S")
     # 9) Créer les dossiers de sortie pour chaque LiDAR
-    base_dir = os.path.expanduser('~/complete-data-traffic-modif/Town10_mercredi3/frames')
-    dir_no   = os.path.join(base_dir, 'no_traffic')
-    dir_mid  = os.path.join(base_dir, 'mid_traffic')
-    dir_full = os.path.join(base_dir, 'full_traffic')
+    base_dir = os.path.expanduser(f'~/dataset/Town10_{timestr}')
+    os.makedirs(base_dir, exist_ok=True)
+    frame_dir = os.path.join(base_dir, 'frames')
+    dir_no   = os.path.join(frame_dir, 'no_traffic')
+    dir_mid  = os.path.join(frame_dir, 'mid_traffic')
+    dir_full = os.path.join(frame_dir, 'full_traffic')
+    os.makedirs(frame_dir, exist_ok=True)
     os.makedirs(dir_no,  exist_ok=True)
     os.makedirs(dir_mid, exist_ok=True)
     os.makedirs(dir_full, exist_ok=True)
@@ -300,14 +307,43 @@ def main():
 
     print("Trois LiDAR attachés et écoutent…")
 
+
+    # 11.bis) Create the Ground Truth trajectory ply file beforehand
+    traj_file_ply = os.path.join(base_dir, 'trajectory_gt.ply')
+    traj_file_tum = os.path.join(base_dir, 'trajectory_gt.tum')
+
+    with open(traj_file_ply, 'wb') as f:
+        f.write(b"ply\n")
+        f.write(b"format binary_little_endian 1.0\n")
+        f.write(f"element vertex {0:>8}\n".encode())
+        for prop in ['x','y','z','q_x','q_y','q_z','q_w','timestamp','vel_x','vel_y','vel_z','acc_x','acc_y','acc_z']:
+            f.write(f"property double {prop}\n".encode())
+        f.write(b"end_header\n")
+
+    # Function to update in-place the number of vertices of the ply files
+    def update_ply_elements_number(file_path, elements_number):
+        with open(file_path, 'r+b') as f:
+            # Go to line 2 which is the one with elements numbers
+            for _ in range(2):
+                f.readline()
+            # Save the position
+            pos = f.tell()
+            # Modify the line with the new one
+            old_line = f.readline()
+            new_line = f"element vertex {elements_number:>8}\n".encode()
+            if len(new_line) != len(old_line):
+                raise ValueError("New line is not the same length. Adjust padding.")
+            # Change the line inplace
+            f.seek(pos)
+            f.write(new_line)
+
+
     # 12) Boucle de simulation pendant sim_time secondes
     sim_time  = 300.0
     num_ticks = int(sim_time / settings.fixed_delta_seconds)
     print(f"Recording for {sim_time}s → {num_ticks} ticks")
 
-    trajectory = []
-
-    for _ in range(num_ticks):
+    for tick_counter in range(num_ticks):
         world.tick()
         # Stocker la trajectoire (pour le LiDAR “full_traffic” uniquement)
         loc = vehicle.get_transform().location
@@ -316,24 +352,15 @@ def main():
         ts = world.get_snapshot().timestamp.elapsed_seconds
         vel = vehicle.get_velocity()
         acc = vehicle.get_acceleration()
-        trajectory.append((loc.x, loc.y, loc.z, qx, qy, qz, qw,
-                           ts, vel.x, vel.y, vel.z, acc.x, acc.y, acc.z))
 
-    # 13) Sauvegarde de la trajectoire au format PLY
-    out_dir_traj = os.path.expanduser('~/complete-data-traffic-modif/Town10_mercredi3/')
-    os.makedirs(out_dir_traj, exist_ok=True)
-    traj_file = os.path.join(out_dir_traj, 'trajectory.ply')
-    with open(traj_file, 'wb') as f:
-        f.write(b"ply\n")
-        f.write(b"format binary_little_endian 1.0\n")
-        f.write(f"element vertex {len(trajectory)}\n".encode())
-        for prop in ['x','y','z','q_x','q_y','q_z','q_w',
-                     'timestamp','vel_x','vel_y','vel_z','acc_x','acc_y','acc_z']:
-            f.write(f"property double {prop}\n".encode())
-        f.write(b"end_header\n")
-        for p in trajectory:
-            f.write(struct.pack("<14d", *p))
-    print(f"Trajectory saved → {traj_file}")
+        update_ply_elements_number(traj_file_ply, tick_counter + 1)
+        with open(traj_file_ply, 'ab') as f_ply:
+            f_ply.write(struct.pack("<14d", loc.x, loc.y, loc.z, qx, qy, qz, qw, ts, vel.x, vel.y, vel.z, acc.x, acc.y, acc.z))
+        with open(traj_file_tum, 'a') as f_tum:
+            f_tum.write(f'{ts} {loc.x} {loc.y} {loc.z} {qx} {qy} {qz} {qw}\n')
+
+    print(f"Trajectory PLY saved → {traj_file_ply}")
+    print(f"Trajectory TUM saved → {traj_file_tum}")
 
     # 14) Cleanup : arrêter et détruire tous les LiDAR + acteurs de trafic + véhicule principal
     print("Cleaning up…")

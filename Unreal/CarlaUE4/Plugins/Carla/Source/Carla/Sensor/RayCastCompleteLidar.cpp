@@ -239,7 +239,7 @@ void ARayCastCompleteLidar::ComputeAndSaveDetections(const FTransform& SensorTra
     FCollisionQueryParams TraceParams = FCollisionQueryParams(FName(TEXT("Laser_Trace")), true, this);
     TraceParams.bTraceComplex = true;
     TraceParams.bReturnPhysicalMaterial = false;
-    //TraceParams.AddIgnoredActor(this);
+    TraceParams.AddIgnoredActor(this);
 
     // 2) On ajoute TOUS les acteurs à ignorer au trace, AVANT même de tirer le rayon.
     for (int32 id : Description.IgnoredActorIds) {
@@ -265,63 +265,22 @@ void ARayCastCompleteLidar::ComputeAndSaveDetections(const FTransform& SensorTra
           FVector  end   = start + dir * Description.Range;
 
           // Lancement du ray‐cast UE4
-          TArray<FHitResult> hits;
-          bool bHit = GetWorld()->LineTraceMultiByChannel(
-              hits, start, end, ECC_GameTraceChannel2, TraceParams);
-
           FHitResult hit;
+          bool bHit = GetWorld()->LineTraceSingleByChannel(
+              hit, start, end, ECC_GameTraceChannel2, TraceParams);
+
           if (!bHit) {
             continue;
           }
-          // 4) Filtrer tous les hits pour en garder le premier “utile” (non dans IgnoredActorIds)
-          FHitResult bestHit;
-          bool      found = false;
-
-          // **Important : TRIER OU PARCOURIR POUR CHOISIR LE PLUS PROCHE**
-          // LineTraceMultiByChannel ne garantit pas que 'hits' soit trié par Distance.
-          // Il faut donc parcourir tous les hits pour trouver celui de plus petite Distance
-          // qui ne soit pas dans la liste d’IDs à ignorer. 
-          float minDistance = TNumericLimits<float>::Max();
-
-          for (const FHitResult &testHit : hits) {
-            // 4.1) Récupérer l’acteur, extraire son CarlaActorId
-            const AActor *actor = testHit.Actor.Get();
-            int32 id = 0;
-            if (actor) {
-              const FCarlaActor *view = GetEpisode().GetActorRegistry().FindCarlaActor(actor);
-              if (view) {
-                id = view->GetActorId();
-              }
-            }
-            // 4.2) Si cet ID est dans la liste ignorée, on skip
-            if (Description.IgnoredActorIds.Contains(id)) {
-              continue;
-            }
-            // 4.3) Parmi les hits “non ignorés”, on garde celui de plus petite Distance
-            if (testHit.Distance < minDistance) {
-              minDistance = testHit.Distance;
-              bestHit     = testHit;
-              found       = true;
-            }
-          }
-
-          if (!found) {
-            // Tous les hits étaient ignorés → on ne génère aucun point
-            continue;
-          }
-
-          // 5) À ce stade, ‘bestHit’ est le premier point “fixe” après avoir percé
-          //    tous les acteurs ignorés. Vous pouvez l’envoyer dans votre nuage :
-          //CarvePointCloudFromHit(bestHit);
 
           // Point d’impact en coords monde
-          const FVector &wp_hit = bestHit.ImpactPoint;
+          const FVector &wp_hit = hit.ImpactPoint;
           //carla::geom::Location P_world{ wp_hit.X / 100, wp_hit.Y / 100, wp_hit.Z / 100 };
 
           // --- UTILISATION DE ComputeDetection ---
           // ComputeDetection transforme le hit en détect., 
           // calcule l’intensité d’après la distance locale.
-          FCompleteLidarDetection det = ComputeDetection(bestHit, SensorTransform);
+          FCompleteLidarDetection det = ComputeDetection(hit, SensorTransform);
 
           // Si on veut garder le point EN COORDONNÉES MONDE :
           //det.point = P_world;
