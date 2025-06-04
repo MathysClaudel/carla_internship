@@ -49,6 +49,11 @@ void ARayCastSemanticLidar::Set(const FLidarDescription &LidarDescription)
   PointsPerChannel.resize(Description.Channels);
 }
 
+void ARayCastSemanticLidar::SetIgnoredActors(const TArray<int32>& ActorIds)
+{
+  Description.IgnoredActorIds = ActorIds;
+}
+
 void ARayCastSemanticLidar::CreateLasers()
 {
   const auto NumberOfLasers = Description.Channels;
@@ -246,8 +251,9 @@ bool ARayCastSemanticLidar::ShootLaser(const float VerticalAngle, const float Ho
   const auto Range = Description.Range;
   FVector EndTrace = Range * UKismetMathLibrary::GetForwardVector(ResultRot) + LidarBodyLoc;
 
-  GetWorld()->ParallelLineTraceSingleByChannel(
-    HitInfo,
+  TArray<FHitResult> Hits;
+  GetWorld()->ParallelLineTraceMultiByChannel(
+    Hits,
     LidarBodyLoc,
     EndTrace,
     ECC_GameTraceChannel2,
@@ -255,10 +261,18 @@ bool ARayCastSemanticLidar::ShootLaser(const float VerticalAngle, const float Ho
     FCollisionResponseParams::DefaultResponseParam
   );
 
-  if (HitInfo.bBlockingHit) {
-    HitResult = HitInfo;
-    return true;
-  } else {
-    return false;
+  for (const FHitResult& TestHit : Hits) {
+    const AActor* Actor = TestHit.Actor.Get();
+    int32 Id = 0;
+    if (Actor) {
+      const FCarlaActor* View = GetEpisode().GetActorRegistry().FindCarlaActor(Actor);
+      if (View)
+        Id = View->GetActorId();
+    }
+    if (!Description.IgnoredActorIds.Contains(Id)) {
+      HitResult = TestHit;
+      return true;
+    }
   }
+  return false;
 }

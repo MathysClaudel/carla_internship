@@ -1012,6 +1012,36 @@ BIND_SYNC(is_sensor_enabled_for_ros) << [this](carla::streaming::detail::stream_
     return R<void>::Success();
   };
 
+  BIND_SYNC(set_lidar_ignored_actors) << [this](
+      cr::ActorId ActorId,
+      std::vector<uint32_t> IgnoredIds) -> R<void>
+  {
+    REQUIRE_CARLA_EPISODE();
+    FCarlaActor* CarlaActor = Episode->FindCarlaActor(ActorId);
+    if (!CarlaActor)
+    {
+      return RespondError(
+          "set_lidar_ignored_actors",
+          ECarlaServerResponse::ActorNotFound,
+          " Actor Id: " + FString::FromInt(ActorId));
+    }
+    ARayCastSemanticLidar* Lidar = Cast<ARayCastSemanticLidar>(CarlaActor->GetActor());
+    if (!Lidar)
+    {
+      return RespondError(
+          "set_lidar_ignored_actors",
+          ECarlaServerResponse::ActorTypeMismatch,
+          " Actor Id: " + FString::FromInt(ActorId));
+    }
+    TArray<int32> IdArray;
+    for (uint32_t Id : IgnoredIds)
+    {
+      IdArray.Add((int32)Id);
+    }
+    Lidar->SetIgnoredActors(IdArray);
+    return R<void>::Success();
+  };
+
   // ~~ Actor physics ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   BIND_SYNC(set_actor_location) << [this](

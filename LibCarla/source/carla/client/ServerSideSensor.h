@@ -59,6 +59,8 @@ namespace client {
     /// Send data via this sensor
     void Send(std::string message);
 
+    void SetLidarIgnoredActors(const std::vector<ActorId> &Ids);
+
     /// @copydoc Actor::Destroy()
     ///
     /// Additionally stop listening.

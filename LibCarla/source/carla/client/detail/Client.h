@@ -439,7 +439,9 @@ namespace detail {
         rpc::ActorId ActorId,
         uint32_t GBufferId);
 
-    void Send(rpc::ActorId ActorId, std::string message);
+  void Send(rpc::ActorId ActorId, std::string message);
+
+  void SetLidarIgnoredActors(rpc::ActorId ActorId, const std::vector<ActorId> &Ids);
 
     void DrawDebugShape(const rpc::DebugShape &shape);
 

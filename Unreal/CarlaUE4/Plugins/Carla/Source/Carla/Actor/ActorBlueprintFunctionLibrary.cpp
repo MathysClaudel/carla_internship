@@ -987,6 +987,13 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
   EnableEgoMotion.Type = EActorAttributeType::Bool;
   EnableEgoMotion.RecommendedValues = { TEXT("true") };
 
+  // Actors ignored by this lidar
+  FActorVariation IgnoredActors;
+  IgnoredActors.Id = TEXT("ignored_actors");
+  IgnoredActors.Type = EActorAttributeType::String;
+  IgnoredActors.RecommendedValues = { TEXT("") };
+  IgnoredActors.bRestrictToRecommended = false;
+
   if (Id == "ray_cast") {
     Definition.Variations.Append({
       Channels,
@@ -1002,7 +1009,8 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
       DropOffAtZeroIntensity,
       StdDevLidar,
       HorizontalFOV,
-      EnableEgoMotion});
+      EnableEgoMotion,
+      IgnoredActors});
   }
   else if (Id == "ray_cast_semantic") {
     Definition.Variations.Append({
@@ -1012,7 +1020,8 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
       Frequency,
       UpperFOV,
       LowerFOV,
-      HorizontalFOV});
+      HorizontalFOV,
+      IgnoredActors});
   }
   else if (Id == "ray_cast_surface_normals") {
     Definition.Variations.Append({
@@ -1028,7 +1037,8 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
       DropOffIntensityLimit,
       DropOffAtZeroIntensity,
       StdDevLidar,
-      HorizontalFOV});
+      HorizontalFOV,
+      IgnoredActors});
   }
   else if (Id == "ray_cast_complete") {
     Definition.Variations.Append({
@@ -1045,7 +1055,8 @@ void UActorBlueprintFunctionLibrary::MakeLidarDefinition(
       DropOffAtZeroIntensity,
       StdDevLidar,
       HorizontalFOV,
-      EnableEgoMotion});
+      EnableEgoMotion,
+      IgnoredActors});
   }
   else {
     DEBUG_ASSERT(false);
@@ -2083,6 +2094,20 @@ void UActorBlueprintFunctionLibrary::SetLidar(
       RetrieveActorAttributeToFloat("noise_stddev", Description.Variations, Lidar.NoiseStdDev);
   Lidar.EnableEgoMotion =
       RetrieveActorAttributeToBool("enable_ego_motion", Description.Variations, Lidar.EnableEgoMotion);
+
+  Lidar.IgnoredActorIds.Empty();
+  const FString IgnoredStr =
+      RetrieveActorAttributeToString("ignored_actors", Description.Variations, TEXT(""));
+  if (!IgnoredStr.IsEmpty())
+  {
+    TArray<FString> Split;
+    IgnoredStr.ParseIntoArray(Split, TEXT(","), true);
+    for (const FString& Elem : Split)
+    {
+      int32 Id = FCString::Atoi(*Elem);
+      Lidar.IgnoredActorIds.Add(Id);
+    }
+  }
 }
 
 void UActorBlueprintFunctionLibrary::SetGnss(
