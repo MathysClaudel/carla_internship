@@ -9,23 +9,41 @@
 #include <carla/client/LaneInvasionSensor.h>
 #include <carla/client/Sensor.h>
 #include <carla/client/ServerSideSensor.h>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <boost/python/stl_iterator.hpp>
 
-static void SubscribeToStream(carla::client::Sensor &self, boost::python::object callback) {
+namespace bp = boost::python;
+
+static void SubscribeToStream(carla::client::Sensor &self, bp::object callback) {
   self.Listen(MakeCallback(std::move(callback)));
 }
 
 static void SubscribeToGBuffer(
   carla::client::ServerSideSensor &self,
   uint32_t GBufferId,
-  boost::python::object callback) {
+  bp::object callback) {
   self.ListenToGBuffer(GBufferId, MakeCallback(std::move(callback)));
+}
+
+// Wrapper optionnel (inutile si vous utilisez vector_indexing_suite + implicit_convertible)
+static void py_SetIgnoredActors(carla::client::ServerSideSensor &sensor, bp::object ids_obj) {
+  std::vector<unsigned int> ids;
+  bp::stl_input_iterator<unsigned int> begin(ids_obj), end;
+  ids.assign(begin, end);
+  sensor.SetLidarIgnoredActors(ids);
 }
 
 void export_sensor() {
   using namespace boost::python;
   namespace cc = carla::client;
 
-  class_<cc::Sensor, bases<cc::Actor>, boost::noncopyable, boost::shared_ptr<cc::Sensor>>("Sensor", no_init)
+  // 1) Exposer std::vector<unsigned int> auprès de Boost.Python
+  class_<std::vector<unsigned int>>("UIntVector")
+    .def(vector_indexing_suite<std::vector<unsigned int>>());
+
+  // 3) Exposer le reste de vos classes
+  class_<cc::Sensor, bases<cc::Actor>, boost::noncopyable, boost::shared_ptr<cc::Sensor>>
+      ("Sensor", no_init)
     .def("listen", &SubscribeToStream, (arg("callback")))
     .def("is_listening", &cc::Sensor::IsListening)
     .def("stop", &cc::Sensor::Stop)
@@ -41,7 +59,8 @@ void export_sensor() {
     .def("disable_for_ros", &cc::ServerSideSensor::DisableForROS)
     .def("is_enabled_for_ros", &cc::ServerSideSensor::IsEnabledForROS)
     .def("send", &cc::ServerSideSensor::Send, (arg("message")))
-    .def("set_ignored_actors", &cc::ServerSideSensor::SetLidarIgnoredActors, (arg("ids")))
+    // Avec implicit_convertible, on peut maintenant passer une `list[int]` directement :
+    .def("set_ignored_actors", &py_SetIgnoredActors, (bp::arg("ids")))
     .def(self_ns::str(self_ns::self))
   ;
 
@@ -54,5 +73,4 @@ void export_sensor() {
       ("LaneInvasionSensor", no_init)
     .def(self_ns::str(self_ns::self))
   ;
-
 }

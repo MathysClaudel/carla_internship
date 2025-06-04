@@ -252,7 +252,7 @@ bool ARayCastSemanticLidar::ShootLaser(const float VerticalAngle, const float Ho
   FVector EndTrace = Range * UKismetMathLibrary::GetForwardVector(ResultRot) + LidarBodyLoc;
 
   TArray<FHitResult> Hits;
-  GetWorld()->ParallelLineTraceMultiByChannel(
+  GetWorld()->LineTraceMultiByChannel(
     Hits,
     LidarBodyLoc,
     EndTrace,

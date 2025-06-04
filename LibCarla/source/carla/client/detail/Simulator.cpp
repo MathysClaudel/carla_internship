@@ -451,8 +451,8 @@ EpisodeProxy Simulator::GetCurrentEpisode() {
     _client.Send(sensor.GetId(), message);
   }
 
-  void Simulator::SetLidarIgnoredActors(const Sensor &sensor, const std::vector<ActorId> &Ids) {
-    _client.SetLidarIgnoredActors(sensor.GetId(), Ids);
+  void Simulator::SetLidarIgnoredActors(const Sensor &sensor, const std::vector<rpc::ActorId> &ids) {
+    _client.SetLidarIgnoredActors(sensor.GetId(), ids);
   }
 
   // =========================================================================

@@ -441,7 +441,7 @@ namespace detail {
 
   void Send(rpc::ActorId ActorId, std::string message);
 
-  void SetLidarIgnoredActors(rpc::ActorId ActorId, const std::vector<ActorId> &Ids);
+  void SetLidarIgnoredActors(rpc::ActorId actor_id, const std::vector<rpc::ActorId> &ids);
 
     void DrawDebugShape(const rpc::DebugShape &shape);
 

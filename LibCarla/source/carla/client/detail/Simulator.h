@@ -28,6 +28,7 @@
 #include "carla/rpc/VehicleWheels.h"
 #include "carla/rpc/Texture.h"
 #include "carla/rpc/MaterialParameter.h"
+#include "carla/client/Sensor.h"
 
 #include <boost/optional.hpp>
 
@@ -714,9 +715,7 @@ namespace detail {
 
     void Send(const Sensor &sensor, std::string message);
 
-    void SetLidarIgnoredActors(const Sensor &sensor, const std::vector<ActorId> &Ids) {
-      _client.SetLidarIgnoredActors(sensor.GetId(), Ids);
-    }
+    void SetLidarIgnoredActors(const Sensor &sensor, const std::vector<rpc::ActorId> &ids);
 
     /// @}
     // =========================================================================

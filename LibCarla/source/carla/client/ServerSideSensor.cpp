@@ -65,8 +65,8 @@ namespace client {
     GetEpisode().Lock()->Send(*this,message);
   }
 
-  void ServerSideSensor::SetLidarIgnoredActors(const std::vector<ActorId> &Ids) {
-    GetEpisode().Lock()->SetLidarIgnoredActors(*this, Ids);
+  void ServerSideSensor::SetLidarIgnoredActors(const std::vector<rpc::ActorId> &ids) {
+    GetEpisode().Lock()->SetLidarIgnoredActors(*this, ids);
   }
 
   void ServerSideSensor::ListenToGBuffer(uint32_t GBufferId, CallbackFunctionType callback) {

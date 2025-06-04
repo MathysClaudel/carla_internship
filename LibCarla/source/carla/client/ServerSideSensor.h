@@ -59,7 +59,7 @@ namespace client {
     /// Send data via this sensor
     void Send(std::string message);
 
-    void SetLidarIgnoredActors(const std::vector<ActorId> &Ids);
+    void SetLidarIgnoredActors(const std::vector<rpc::ActorId> &ids);
 
     /// @copydoc Actor::Destroy()
     ///

@@ -688,8 +688,8 @@ void Client::Send(rpc::ActorId ActorId, std::string message) {
   _pimpl->AsyncCall("send", ActorId, message);
 }
 
-void Client::SetLidarIgnoredActors(rpc::ActorId ActorId, const std::vector<ActorId> &Ids) {
-  _pimpl->AsyncCall("set_lidar_ignored_actors", ActorId, Ids);
+void Client::SetLidarIgnoredActors(rpc::ActorId actor_id, const std::vector<rpc::ActorId> &ids) {
+  _pimpl->AsyncCall("set_lidar_ignored_actors", actor_id, ids);
 }
 
   void Client::SubscribeToGBuffer(
