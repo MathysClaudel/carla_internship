@@ -58,13 +58,16 @@ namespace data {
       float cos_inc_angle{};
       uint32_t object_idx{};
       uint32_t object_tag{};
+      float r{};
+      float g{};
+      float b{};
 
       CompleteLidarDetection() :
-          point(0.0f, 0.0f, 0.0f), intensity{0.0f}, surf_normal(0.0f, 0.0f, 0.0f) { }
-      CompleteLidarDetection(float x, float y, float z, float intensity, float nx, float ny, float nz,float cosTh, uint32_t idx, uint32_t tag ) :
-          point(x, y, z), intensity{intensity}, surf_normal(nx, ny, nz), cos_inc_angle{cosTh}, object_idx{idx}, object_tag{tag} { }
-      CompleteLidarDetection(geom::Location p, float intensity, geom::Location surf_normal,float cosTh, uint32_t idx, uint32_t tag) :
-          point(p), intensity{intensity}, surf_normal(surf_normal),cos_inc_angle{cosTh}, object_idx{idx}, object_tag{tag}  { }
+        point(0.0f, 0.0f, 0.0f), intensity{0.0f}, surf_normal(0.0f, 0.0f, 0.0f), r{0.0f}, g{0.0f}, b{0.0f} { }
+      CompleteLidarDetection(float x, float y, float z, float intensity, float nx, float ny, float nz,float cosTh, uint32_t idx, uint32_t tag, float rr, float gg, float bb ) :
+          point(x, y, z), intensity{intensity}, surf_normal(nx, ny, nz), cos_inc_angle{cosTh}, object_idx{idx}, object_tag{tag}, r{rr}, g{gg}, b{bb} { }
+      CompleteLidarDetection(geom::Location p, float intensity, geom::Location surf_normal,float cosTh, uint32_t idx, uint32_t tag, float rr, float gg, float bb) :
+          point(p), intensity{intensity}, surf_normal(surf_normal),cos_inc_angle{cosTh}, object_idx{idx}, object_tag{tag}, r{rr}, g{gg}, b{bb}  { }
       void WritePlyHeaderInfo(std::ostream& out) const{
         out << "property float32 x\n" \
           "property float32 y\n" \
@@ -75,12 +78,17 @@ namespace data {
           "property float32 nz\n" \
           "property float32 CosAngle\n" \
           "property uint32 ObjIdx\n" \
-          "property uint32 ObjTag";
+          "property uint32 ObjTag\n" \
+          "property float32 r\n" \
+          "property float32 g\n" \
+          "property float32 b";
       }
 
       void WriteDetection(std::ostream& out) const{
         out << point.x << ' ' << point.y << ' ' << point.z << ' ' << intensity
-                << ' ' << surf_normal.x << ' ' << surf_normal.y << ' ' << surf_normal.z << ' ' << cos_inc_angle << ' ' << object_idx << ' ' << object_tag;
+        << ' ' << surf_normal.x << ' ' << surf_normal.y << ' ' << surf_normal.z << ' '
+        << cos_inc_angle << ' ' << object_idx << ' ' << object_tag << ' '
+        << r << ' ' << g << ' ' << b;
       }
   };
 
@@ -104,7 +112,7 @@ namespace data {
           std::accumulate(points_per_channel.begin(), points_per_channel.end(), 0));
 
       _points.clear();
-      _points.reserve(total_points * 10);
+      _points.reserve(total_points * 13);
     }
 
     void WritePointSync(CompleteLidarDetection &detection) {
@@ -118,6 +126,9 @@ namespace data {
       _points.emplace_back(detection.cos_inc_angle);
       _points.emplace_back(detection.object_idx);
       _points.emplace_back(detection.object_tag);
+      _points.emplace_back(detection.r);
+      _points.emplace_back(detection.g);
+      _points.emplace_back(detection.b);
     }
 
     virtual void WritePointSync(LidarDetection &detection) {

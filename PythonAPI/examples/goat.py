@@ -18,6 +18,16 @@ import numpy as np
 import array
 from plyfile import PlyData, PlyElement
 
+import threading, time
+
+def repeat_force_lane_change(vehicle, tm, interval=10.0):
+    def run():
+        while True:
+            tm.force_lane_change(vehicle, True)
+            time.sleep(interval)
+    threading.Thread(target=run, daemon=True).start()
+
+
 
 class PointCloudComplete:
     """
@@ -117,30 +127,87 @@ def main():
     # 3) Spawn du véhicule principal (Tesla Model 3)
     main_bp      = blueprint_lib.find('vehicle.tesla.model3')
     spawn_points = world.get_map().get_spawn_points()
-    random.shuffle(spawn_points)
-    main_spawn = spawn_points.pop()
-    vehicle    = world.spawn_actor(main_bp, main_spawn)
-    print(f"Main vehicle (Tesla) at {main_spawn.location}")
+    # random.shuffle(spawn_points)
+    # main_spawn = spawn_points.pop()
+    # vehicle    = world.spawn_actor(main_bp, main_spawn)
+    # print(f"Main vehicle (Tesla) at {main_spawn.location}")
 
-    # 4) Spawn du trafic : 40 véhicules, 20 piétons, 10 motos
+    location = carla.Location(x=37.3, y=43.3, z=0.3)
+    rotation = carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0)  # ou ajuster le yaw si besoin
+    fixed_transform = carla.Transform(location, rotation)
+
+    #Spawn de la voiture à cet emplacement fixe
+    vehicle = world.spawn_actor(main_bp, fixed_transform)
+    print(f"Main vehicle (Tesla) at {fixed_transform.location}")
+
+    # 1. Récupérer tous les véhicules, sauf les 'lincoln'
     all_vehicle_bps = blueprint_lib.filter('vehicle.*')
     all_vehicle_bps = [bp for bp in all_vehicle_bps if 'lincoln' not in bp.id]
-    vehicle_bps     = [bp for bp in all_vehicle_bps if bp.id != main_bp.id]
+
+    # 2. Séparer camions et voitures selon la présence de "truck" dans l'ID
+    truck_bps = [bp for bp in all_vehicle_bps if 'truck' in bp.id]
+    car_bps   = [bp for bp in all_vehicle_bps if 'truck' not in bp.id]
+
+    # 3. Mélanger les spawn points pour les répartir aléatoirement
+    random.shuffle(spawn_points)
 
     traffic_vehicles = []
-    for point in spawn_points[:80]:
-        bp = random.choice(vehicle_bps)
+
+    # # 4. Faire apparaître 40 camions sur les 40 premiers points
+    # for point in spawn_points[:20]:
+    #     bp = random.choice(truck_bps)
+    #     actor = world.try_spawn_actor(bp, point)
+    #     if actor:
+    #         actor.set_autopilot(True, tm.get_port())
+    #         traffic_vehicles.append(actor)
+
+    # 5. Faire apparaître 50 voitures sur les 50 points suivants
+    # for point in spawn_points[:40]:
+    #     bp = random.choice(car_bps)
+    #     actor = world.try_spawn_actor(bp, point)
+    #     if actor:
+    #         actor.set_autopilot(True, tm.get_port())
+    #         traffic_vehicles.append(actor)
+
+    for point in spawn_points[:100]:
+        bp = random.choice(all_vehicle_bps)
         actor = world.try_spawn_actor(bp, point)
         if actor:
             actor.set_autopilot(True, tm.get_port())
             traffic_vehicles.append(actor)
-    print(f"Spawned traffic vehicles: {len(traffic_vehicles)}")
+            tm.ignore_signs_percentage(actor, 50.0)
+            tm.ignore_signs_percentage(actor, 50.0)
 
-    # 5) Activer l’autopilot de l’ego (et config TM)
+    # 6. Affichage du résultat
+    #    On compte à nouveau les camions en vérifiant si 'truck' est dans l’ID du blueprint de chaque acteur
+    nb_camions = sum(1 for v in traffic_vehicles if 'truck' in v.type_id)
+    nb_voitures = len(traffic_vehicles) - nb_camions
+    print(f"Spawned {len(traffic_vehicles)} vehicles : {nb_camions} trucks, {nb_voitures} cars")
+
+
+    # 1) Activation de l’autopilot
     vehicle.set_autopilot(True, tm.get_port())
+
+    # 2) Ignorer feux et stops
     tm.ignore_lights_percentage(vehicle, 100.0)
-    tm.ignore_signs_percentage(vehicle, 50.0)
-    print("Autopilot principal activé")
+    tm.ignore_signs_percentage(vehicle, 100.0)
+
+    # 3) Comportement “punchy” safe
+    tm.auto_lane_change(vehicle, True)
+    tm.random_left_lanechange_percentage(vehicle, 80.0)   # 80% de chance de vouloir changer à gauche
+    tm.random_right_lanechange_percentage(vehicle, 80.0)  # 80% de chance de vouloir changer à droite
+
+    # 4) Aller plus vite que les autres
+    tm.vehicle_percentage_speed_difference(vehicle, -30.0)  # 30% au-dessus de la limite :contentReference[oaicite:0]{index=0}
+    # ou en absolu :
+    # tm.set_desired_speed(vehicle, 40.0)  # 40 m/s (~144 km/h) :contentReference[oaicite:1]{index=1}
+
+    # 5) Coller un peu la voiture de devant
+    tm.distance_to_leading_vehicle(vehicle, 1.0)  # 1 mètre :contentReference[oaicite:2]{index=2}
+
+    print("Autopilot punchy activé")
+
+
 
     # 6) Préparer les listes d’IDs à ignorer
     all_ids         = [a.id for a in traffic_vehicles]
@@ -215,7 +282,7 @@ def main():
 
     timestr = time.strftime("%Y%m%d-%H%M%S")
     # 9) Créer les dossiers de sortie pour chaque LiDAR
-    base_dir = os.path.expanduser(f'~/dataset/Town10_{timestr}')
+    base_dir = os.path.expanduser(f'~/dataset/Town10_v3_{timestr}')
     os.makedirs(base_dir, exist_ok=True)
     frame_dir = os.path.join(base_dir, 'frames')
     dir_no   = os.path.join(frame_dir, 'no_traffic')
@@ -339,7 +406,7 @@ def main():
 
 
     # 12) Boucle de simulation pendant sim_time secondes
-    sim_time  = 300.0
+    sim_time  = 1200.0
     num_ticks = int(sim_time / settings.fixed_delta_seconds)
     print(f"Recording for {sim_time}s → {num_ticks} ticks")
 

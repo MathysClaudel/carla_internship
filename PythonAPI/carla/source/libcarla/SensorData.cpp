@@ -199,6 +199,9 @@ namespace data {
         << ", cos_inc_angle=" << std::to_string(det.cos_inc_angle)
         << ", object_idx=" << std::to_string(det.object_idx)
         << ", object_tag=" << std::to_string(det.object_tag)
+        << ", r=" << std::to_string(det.r)
+        << ", g=" << std::to_string(det.g)
+        << ", b=" << std::to_string(det.b)
         << ')';
     return out;
   }
@@ -699,6 +702,9 @@ void export_sensor_data() {
   .def_readwrite("cos_inc_angle", &csd::CompleteLidarDetection::cos_inc_angle)
   .def_readwrite("object_idx", &csd::CompleteLidarDetection::object_idx)
   .def_readwrite("object_tag", &csd::CompleteLidarDetection::object_tag)
+  .def_readwrite("r", &csd::CompleteLidarDetection::r)
+  .def_readwrite("g", &csd::CompleteLidarDetection::g)
+  .def_readwrite("b", &csd::CompleteLidarDetection::b)
   .def(self_ns::str(self_ns::self))
   ;
 

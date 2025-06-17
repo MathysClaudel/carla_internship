@@ -11,6 +11,7 @@
 #include "carla/geom/Math.h"
 #include "carla/ros2/ROS2.h"
 #include "carla/geom/Location.h"
+#include "carla/image/CityScapesPalette.h"
 #include <compiler/enable-ue4-macros.h>
 
 #include "DrawDebugHelpers.h"
@@ -139,6 +140,11 @@ ARayCastCompleteLidar::FCompleteLidarDetection ARayCastCompleteLidar::ComputeDet
   else {
     UE_LOG(LogCarla, Warning, TEXT("Actor not valid %p!!!!"), actor);
   }
+
+  const auto color = carla::image::CityScapesPalette::GetColor(static_cast<uint8_t>(Detection.object_tag));
+  Detection.r = static_cast<float>(color[0]) / 255.0f;
+  Detection.g = static_cast<float>(color[1]) / 255.0f;
+  Detection.b = static_cast<float>(color[2]) / 255.0f;
 
 
   // 4) On calcule la distance du capteur au point (en mètre)
